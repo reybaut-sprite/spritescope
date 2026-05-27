@@ -17,45 +17,11 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# =========================================================
-# LANGUAGE
-# =========================================================
-
-language = st.sidebar.radio(
-
-    "Language",
-
-    [
-        "English",
-        "Français"
-    ],
-
-    index=0
-
-)
-
-EN = language == "English"
-
-
-def tr(en, fr):
-
-    if EN:
-        return en
-
-    return fr
-
-
-st.title(
-    tr(
-        "⚡ SpriteScope — sprite hunting cone",
-        "⚡ SpriteScope — cône de chasse aux sprites"
-    )
-)
+st.title("⚡ SpriteScope — cône de chasse aux sprites")
 
 
 # =========================================================
-# FOCAL LENGTHS
+# FOCALES
 # =========================================================
 
 FULL_FRAME = {
@@ -82,7 +48,7 @@ APS_C = {
 
 
 # =========================================================
-# GEOCODING
+# GEOCODAGE
 # =========================================================
 
 def geocode_place(query):
@@ -128,7 +94,7 @@ def geocode_place(query):
 
 
 # =========================================================
-# CALCULATIONS
+# CALCULS
 # =========================================================
 
 def destination_point(lat, lon, bearing, distance_km):
@@ -208,7 +174,7 @@ def angle_diff(a, b):
 
 def sprite_elevation(
     distance_km,
-    altitude_km
+    altitude_km=80
 ):
 
     return math.degrees(
@@ -237,10 +203,10 @@ def in_cone(
 
 
 # =========================================================
-# LIGHTNING IMPACTS
+# IMPACTS TEST
 # =========================================================
 
-def get_real_lightning():
+def get_test_impacts():
 
     impacts = [
 
@@ -263,77 +229,84 @@ def get_real_lightning():
 # SIDEBAR
 # =========================================================
 
-st.sidebar.header(
-    tr(
-        "Settings",
-        "Paramètres"
-    )
-)
+st.sidebar.header("Paramètres")
 
-
-# =========================================================
-# OBSERVER
-# =========================================================
 
 lieu = st.sidebar.text_input(
-
-    tr(
-        "Observation location",
-        "Lieu d'observation"
-    ),
-
+    "Lieu d'observation",
     "Col de Vence"
-
 )
 
-
-# =========================================================
-# SENSOR
-# =========================================================
 
 sensor = st.sidebar.radio(
-
-    tr(
-        "Sensor",
-        "Capteur"
-    ),
-
-    [
-        tr("Full frame", "Plein format"),
-        "APS-C"
-    ]
-
+    "Capteur",
+    ["Plein format", "APS-C"]
 )
 
 
-if sensor == tr("Full frame", "Plein format"):
+if sensor == "Plein format":
     focales = FULL_FRAME
 else:
     focales = APS_C
 
 
-# =========================================================
-# FOCAL LENGTH
-# =========================================================
-
 focale = st.sidebar.selectbox(
-
-    tr(
-        "Focal length",
-        "Focale"
-    ),
-
+    "Focale",
     list(focales.keys()),
-
     index=2
-
 )
+
 
 fov = focales[focale]
 
 
+azimut = st.sidebar.number_input(
+    "Azimut central",
+    min_value=0.0,
+    max_value=360.0,
+    value=150.0,
+    step=1.0
+)
+
+
+distance_cone = st.sidebar.slider(
+    "Distance du cône",
+    100,
+    1000,
+    600,
+    step=50
+)
+
+
+niveau_sprite = st.sidebar.radio(
+
+    "Hauteur du sprite",
+
+    [
+        "Bas",
+        "Milieu",
+        "Sommet"
+    ],
+
+    index=1
+
+)
+
+if niveau_sprite == "Bas":
+
+    altitude_sprite = 50
+
+elif niveau_sprite == "Milieu":
+
+    altitude_sprite = 75
+
+else:
+
+    altitude_sprite = 90
+
+
 # =========================================================
-# OBSERVER POSITION
+# POSITION OBSERVATEUR
 # =========================================================
 
 if "lat" not in st.session_state:
@@ -348,6 +321,8 @@ if "last_place" not in st.session_state:
 
     st.session_state.last_place = lieu
 
+
+# changement manuel du lieu
 
 if lieu != st.session_state.last_place:
 
@@ -364,220 +339,10 @@ lon = st.session_state.lon
 
 
 # =========================================================
-# TARGET MODE
+# IMPACTS
 # =========================================================
 
-mode_visee = st.sidebar.radio(
-
-    tr(
-        "Target mode",
-        "Mode de visée"
-    ),
-
-    [
-        tr("Manual azimuth", "Azimut manuel"),
-        tr("Target city", "Ville cible")
-    ]
-
-)
-
-
-# =========================================================
-# AZIMUTH
-# =========================================================
-
-if mode_visee == tr("Manual azimuth", "Azimut manuel"):
-
-    azimut = st.sidebar.number_input(
-
-        tr(
-            "Central azimuth",
-            "Azimut central"
-        ),
-
-        min_value=0.0,
-        max_value=360.0,
-
-        value=150.0,
-
-        step=1.0
-
-    )
-
-    distance_ville = None
-
-
-else:
-
-    ville_cible = st.sidebar.text_input(
-
-        tr(
-            "Target city",
-            "Ville cible"
-        ),
-
-        "Ljubljana"
-
-    )
-
-    cible_lat, cible_lon = geocode_place(
-        ville_cible
-    )
-
-    azimut = bearing_deg(
-
-        lat,
-        lon,
-
-        cible_lat,
-        cible_lon
-
-    )
-
-    distance_ville = haversine_km(
-
-        lat,
-        lon,
-
-        cible_lat,
-        cible_lon
-
-    )
-
-    st.sidebar.success(
-        f"Azimuth : {azimut:.1f}°"
-    )
-
-    st.sidebar.success(
-        f"Distance : {distance_ville:.0f} km"
-    )
-
-
-# =========================================================
-# CONE DISTANCE
-# =========================================================
-
-distance_cone = st.sidebar.slider(
-
-    tr(
-        "Cone distance",
-        "Distance du cône"
-    ),
-
-    100,
-    1000,
-    600,
-    step=50
-
-)
-
-
-# =========================================================
-# SPRITE HEIGHT
-# =========================================================
-
-niveau_sprite = st.sidebar.radio(
-
-    tr(
-        "Sprite height",
-        "Hauteur du sprite"
-    ),
-
-    [
-        tr("Bottom", "Bas"),
-        tr("Middle", "Milieu"),
-        tr("Top", "Sommet")
-    ],
-
-    index=1
-
-)
-
-if niveau_sprite == tr("Bottom", "Bas"):
-
-    altitude_sprite = 50
-
-elif niveau_sprite == tr("Middle", "Milieu"):
-
-    altitude_sprite = 75
-
-else:
-
-    altitude_sprite = 90
-
-
-# =========================================================
-# MOVE MODE
-# =========================================================
-
-move_mode = st.sidebar.checkbox(
-
-    tr(
-        "Move spot manually",
-        "Déplacer le spot manuellement"
-    ),
-
-    value=False
-
-)
-
-if move_mode:
-
-    st.sidebar.info(
-
-        tr(
-            "Click on the map to move the spot.",
-            "Cliquez sur la carte pour déplacer le spot."
-        )
-
-    )
-
-
-# =========================================================
-# VISIBILITY WARNINGS
-# =========================================================
-
-if mode_visee == tr("Target city", "Ville cible"):
-
-    if distance_ville > 800:
-
-        st.error(
-
-            tr(
-                "⚠️ Warning: beyond 800 km, low sprites may fall below the horizon.",
-                "⚠️ Attention : au-delà de 800 km, les sprites bas peuvent passer sous l’horizon."
-            )
-
-        )
-
-    elif distance_ville > 650:
-
-        st.warning(
-
-            tr(
-                "⚠️ Long distance: low sprites will be harder to see.",
-                "⚠️ Distance importante : les sprites bas seront plus difficiles à voir."
-            )
-
-        )
-
-    else:
-
-        st.success(
-
-            tr(
-                "✅ Favorable distance for sprite visibility.",
-                "✅ Distance favorable pour la visibilité des sprites."
-            )
-
-        )
-
-
-# =========================================================
-# LIGHTNING
-# =========================================================
-
-impacts = get_real_lightning()
+impacts = get_test_impacts()
 
 distances = []
 azimuths = []
@@ -625,7 +390,7 @@ impacts["inside"] = inside
 
 
 # =========================================================
-# INFO
+# INFOS
 # =========================================================
 
 st.write(
@@ -636,26 +401,19 @@ st.write(
 st.write(
     f"📷 {sensor} — "
     f"{focale} — "
-    f"{tr('horizontal field', 'champ horizontal')} : "
-    f"{fov}°"
+    f"champ horizontal : {fov}°"
 )
 
 st.write(
-    f"🧭 "
+    f"🧭 cône : "
     f"{azimut - fov/2:.1f}° "
     f"→ "
     f"{azimut + fov/2:.1f}°"
 )
 
-st.write(
-    f"⚡ "
-    f"{niveau_sprite} "
-    f"({altitude_sprite} km)"
-)
-
 
 # =========================================================
-# SPRITE ELEVATION TABLE
+# TABLEAU ÉLÉVATION SIDEBAR
 # =========================================================
 
 elev_200 = sprite_elevation(200, altitude_sprite)
@@ -666,12 +424,7 @@ elev_600 = sprite_elevation(600, altitude_sprite)
 
 st.sidebar.markdown("---")
 
-st.sidebar.markdown(
-    tr(
-        "## Sprite elevation",
-        "## Élévation sprite"
-    )
-)
+st.sidebar.markdown("## Élévation sprite")
 
 st.sidebar.markdown(
 
@@ -693,49 +446,23 @@ st.sidebar.markdown(
 
 
 # =========================================================
-# MAP
+# CARTE
 # =========================================================
 
 m = folium.Map(
     location=[lat, lon],
     zoom_start=6,
-    tiles="CartoDB positron"
+    tiles="CartoDB dark_matter"
 )
 
 
-# =========================================================
-# REAL LIGHTNING LAYER
-# =========================================================
-
-folium.TileLayer(
-
-    tiles=(
-        "https://tiles.lightningmaps.org/"
-        "tiles/"
-        "lightning_brt/"
-        "{z}/{x}/{y}.png"
-    ),
-
-    attr="LightningMaps",
-
-    name="Lightning",
-
-    overlay=True,
-
-    control=True
-
-).add_to(m)
-
-
-# =========================================================
-# OBSERVER MARKER
-# =========================================================
+# observateur
 
 folium.Marker(
 
     [lat, lon],
 
-    popup="Observer",
+    popup=lieu,
 
     icon=folium.Icon(
         color="purple"
@@ -744,24 +471,7 @@ folium.Marker(
 ).add_to(m)
 
 
-folium.CircleMarker(
-
-    [lat, lon],
-
-    radius=12,
-
-    color="cyan",
-
-    fill=True,
-
-    fill_opacity=0.35
-
-).add_to(m)
-
-
-# =========================================================
-# CONE
-# =========================================================
+# cone
 
 left_az = azimut - fov / 2
 right_az = azimut + fov / 2
@@ -819,7 +529,7 @@ folium.PolyLine(
 
 folium.PolyLine(
     [[lat, lon], center_point],
-    color="black",
+    color="white",
     weight=1,
     dash_array="5"
 ).add_to(m)
@@ -828,35 +538,14 @@ folium.PolyLine(
 folium.Circle(
     location=[lat, lon],
     radius=distance_cone * 1000,
-    color="black",
+    color="white",
     weight=1,
     opacity=0.25,
     fill=False
 ).add_to(m)
 
 
-# =========================================================
-# TARGET CITY
-# =========================================================
-
-if mode_visee == tr("Target city", "Ville cible"):
-
-    folium.Marker(
-
-        [cible_lat, cible_lon],
-
-        popup=ville_cible,
-
-        icon=folium.Icon(
-            color="red"
-        )
-
-    ).add_to(m)
-
-
-# =========================================================
-# LOCAL IMPACTS
-# =========================================================
+# impacts
 
 for _, row in impacts.iterrows():
 
@@ -871,10 +560,10 @@ for _, row in impacts.iterrows():
         f"Distance : "
         f"{row['distance_km']:.0f} km<br>"
 
-        f"Azimuth : "
+        f"Azimut : "
         f"{row['azimuth']:.1f}°<br>"
 
-        f"Sprite elevation : "
+        f"Élévation sprite : "
         f"{row['elevation']:.1f}°"
 
     )
@@ -897,14 +586,7 @@ for _, row in impacts.iterrows():
 
 
 # =========================================================
-# LAYER CONTROL
-# =========================================================
-
-folium.LayerControl().add_to(m)
-
-
-# =========================================================
-# MAP DISPLAY
+# AFFICHAGE CARTE
 # =========================================================
 
 map_data = st_folium(
@@ -921,29 +603,27 @@ map_data = st_folium(
 
 
 # =========================================================
-# MOVE SPOT
+# DÉPLACEMENT SPOT PAR CLIC
 # =========================================================
 
-if move_mode:
+if map_data["last_clicked"]:
 
-    if map_data["last_clicked"]:
+    st.session_state.lat = map_data["last_clicked"]["lat"]
+    st.session_state.lon = map_data["last_clicked"]["lng"]
 
-        st.session_state.lat = map_data["last_clicked"]["lat"]
-        st.session_state.lon = map_data["last_clicked"]["lng"]
+    st.rerun()
 
-        st.rerun()
+    st.session_state.lat = map_data["last_clicked"]["lat"]
+    st.session_state.lon = map_data["last_clicked"]["lng"]
+
+    st.rerun()
 
 
 # =========================================================
-# TABLE
+# TABLEAU IMPACTS
 # =========================================================
 
-st.subheader(
-    tr(
-        "Lightning strikes",
-        "Impacts"
-    )
-)
+st.subheader("Impacts")
 
 st.dataframe(
 
