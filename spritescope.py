@@ -203,10 +203,14 @@ def in_cone(
 
 
 # =========================================================
-# IMPACTS TEST
+# IMPACTS ÉCLAIRS
 # =========================================================
 
-def get_test_impacts():
+def get_real_lightning():
+
+    # POUR L’INSTANT :
+    # impacts simulés
+    # structure prête pour Blitzortung
 
     impacts = [
 
@@ -232,11 +236,19 @@ def get_test_impacts():
 st.sidebar.header("Paramètres")
 
 
+# =========================================================
+# OBSERVATEUR
+# =========================================================
+
 lieu = st.sidebar.text_input(
     "Lieu d'observation",
     "Col de Vence"
 )
 
+
+# =========================================================
+# CAPTEUR
+# =========================================================
 
 sensor = st.sidebar.radio(
     "Capteur",
@@ -250,12 +262,15 @@ else:
     focales = APS_C
 
 
+# =========================================================
+# FOCALE
+# =========================================================
+
 focale = st.sidebar.selectbox(
     "Focale",
     list(focales.keys()),
     index=2
 )
-
 
 fov = focales[focale]
 
@@ -325,6 +340,9 @@ if mode_visee == "Azimut manuel":
         step=1.0
 
     )
+
+    distance_ville = None
+
 
 else:
 
@@ -411,10 +429,41 @@ else:
 
 
 # =========================================================
+# ALERTES VISIBILITÉ
+# =========================================================
+
+if mode_visee == "Ville cible":
+
+    if distance_ville > 800:
+
+        st.error(
+            "⚠️ Attention : "
+            "au-delà de 800 km, "
+            "les sprites bas peuvent "
+            "passer sous l’horizon."
+        )
+
+    elif distance_ville > 650:
+
+        st.warning(
+            "⚠️ Distance importante : "
+            "les sprites bas seront "
+            "plus difficiles à voir."
+        )
+
+    else:
+
+        st.success(
+            "✅ Distance favorable "
+            "pour la visibilité des sprites."
+        )
+
+
+# =========================================================
 # IMPACTS
 # =========================================================
 
-impacts = get_test_impacts()
+impacts = get_real_lightning()
 
 distances = []
 azimuths = []
@@ -534,7 +583,9 @@ m = folium.Map(
 )
 
 
-# observateur
+# =========================================================
+# OBSERVATEUR
+# =========================================================
 
 folium.Marker(
 
@@ -548,8 +599,6 @@ folium.Marker(
 
 ).add_to(m)
 
-
-# halo
 
 folium.CircleMarker(
 
@@ -721,7 +770,7 @@ map_data = st_folium(
 
 
 # =========================================================
-# DÉPLACEMENT PAR CLIC
+# DÉPLACEMENT SPOT PAR CLIC
 # =========================================================
 
 if map_data["last_clicked"]:
@@ -733,7 +782,7 @@ if map_data["last_clicked"]:
 
 
 # =========================================================
-# TABLEAU
+# TABLEAU IMPACTS
 # =========================================================
 
 st.subheader("Impacts")
