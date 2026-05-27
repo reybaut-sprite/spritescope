@@ -174,7 +174,7 @@ def angle_diff(a, b):
 
 def sprite_elevation(
     distance_km,
-    altitude_km=80
+    altitude_km
 ):
 
     return math.degrees(
@@ -260,14 +260,115 @@ focale = st.sidebar.selectbox(
 fov = focales[focale]
 
 
-azimut = st.sidebar.number_input(
-    "Azimut central",
-    min_value=0.0,
-    max_value=360.0,
-    value=150.0,
-    step=1.0
+# =========================================================
+# POSITION OBSERVATEUR
+# =========================================================
+
+if "lat" not in st.session_state:
+
+    default_lat, default_lon = geocode_place(lieu)
+
+    st.session_state.lat = default_lat
+    st.session_state.lon = default_lon
+
+
+if "last_place" not in st.session_state:
+
+    st.session_state.last_place = lieu
+
+
+if lieu != st.session_state.last_place:
+
+    new_lat, new_lon = geocode_place(lieu)
+
+    st.session_state.lat = new_lat
+    st.session_state.lon = new_lon
+
+    st.session_state.last_place = lieu
+
+
+lat = st.session_state.lat
+lon = st.session_state.lon
+
+
+# =========================================================
+# MODE VISÉE
+# =========================================================
+
+mode_visee = st.sidebar.radio(
+
+    "Mode de visée",
+
+    [
+        "Azimut manuel",
+        "Ville cible"
+    ]
+
 )
 
+
+# =========================================================
+# AZIMUT
+# =========================================================
+
+if mode_visee == "Azimut manuel":
+
+    azimut = st.sidebar.number_input(
+
+        "Azimut central",
+
+        min_value=0.0,
+        max_value=360.0,
+
+        value=150.0,
+
+        step=1.0
+
+    )
+
+else:
+
+    ville_cible = st.sidebar.text_input(
+        "Ville cible",
+        "Ljubljana"
+    )
+
+    cible_lat, cible_lon = geocode_place(
+        ville_cible
+    )
+
+    azimut = bearing_deg(
+
+        lat,
+        lon,
+
+        cible_lat,
+        cible_lon
+
+    )
+
+    distance_ville = haversine_km(
+
+        lat,
+        lon,
+
+        cible_lat,
+        cible_lon
+
+    )
+
+    st.sidebar.success(
+        f"Azimut : {azimut:.1f}°"
+    )
+
+    st.sidebar.success(
+        f"Distance : {distance_ville:.0f} km"
+    )
+
+
+# =========================================================
+# DISTANCE CÔNE
+# =========================================================
 
 distance_cone = st.sidebar.slider(
     "Distance du cône",
@@ -277,6 +378,10 @@ distance_cone = st.sidebar.slider(
     step=50
 )
 
+
+# =========================================================
+# HAUTEUR SPRITE
+# =========================================================
 
 niveau_sprite = st.sidebar.radio(
 
@@ -303,39 +408,6 @@ elif niveau_sprite == "Milieu":
 else:
 
     altitude_sprite = 90
-
-
-# =========================================================
-# POSITION OBSERVATEUR
-# =========================================================
-
-if "lat" not in st.session_state:
-
-    default_lat, default_lon = geocode_place(lieu)
-
-    st.session_state.lat = default_lat
-    st.session_state.lon = default_lon
-
-
-if "last_place" not in st.session_state:
-
-    st.session_state.last_place = lieu
-
-
-# changement manuel du lieu
-
-if lieu != st.session_state.last_place:
-
-    new_lat, new_lon = geocode_place(lieu)
-
-    st.session_state.lat = new_lat
-    st.session_state.lon = new_lon
-
-    st.session_state.last_place = lieu
-
-
-lat = st.session_state.lat
-lon = st.session_state.lon
 
 
 # =========================================================
@@ -411,9 +483,15 @@ st.write(
     f"{azimut + fov/2:.1f}°"
 )
 
+st.write(
+    f"⚡ Hauteur sprite : "
+    f"{niveau_sprite} "
+    f"({altitude_sprite} km)"
+)
+
 
 # =========================================================
-# TABLEAU ÉLÉVATION SIDEBAR
+# TABLEAU ÉLÉVATION
 # =========================================================
 
 elev_200 = sprite_elevation(200, altitude_sprite)
@@ -462,7 +540,7 @@ folium.Marker(
 
     [lat, lon],
 
-    popup=lieu,
+    popup="Observateur",
 
     icon=folium.Icon(
         color="purple"
@@ -471,7 +549,26 @@ folium.Marker(
 ).add_to(m)
 
 
-# cone
+# halo
+
+folium.CircleMarker(
+
+    [lat, lon],
+
+    radius=12,
+
+    color="cyan",
+
+    fill=True,
+
+    fill_opacity=0.35
+
+).add_to(m)
+
+
+# =========================================================
+# CÔNE
+# =========================================================
 
 left_az = azimut - fov / 2
 right_az = azimut + fov / 2
@@ -545,7 +642,28 @@ folium.Circle(
 ).add_to(m)
 
 
-# impacts
+# =========================================================
+# VILLE CIBLE
+# =========================================================
+
+if mode_visee == "Ville cible":
+
+    folium.Marker(
+
+        [cible_lat, cible_lon],
+
+        popup=ville_cible,
+
+        icon=folium.Icon(
+            color="red"
+        )
+
+    ).add_to(m)
+
+
+# =========================================================
+# IMPACTS
+# =========================================================
 
 for _, row in impacts.iterrows():
 
@@ -603,7 +721,7 @@ map_data = st_folium(
 
 
 # =========================================================
-# DÉPLACEMENT SPOT PAR CLIC
+# DÉPLACEMENT PAR CLIC
 # =========================================================
 
 if map_data["last_clicked"]:
@@ -613,14 +731,9 @@ if map_data["last_clicked"]:
 
     st.rerun()
 
-    st.session_state.lat = map_data["last_clicked"]["lat"]
-    st.session_state.lon = map_data["last_clicked"]["lng"]
-
-    st.rerun()
-
 
 # =========================================================
-# TABLEAU IMPACTS
+# TABLEAU
 # =========================================================
 
 st.subheader("Impacts")
