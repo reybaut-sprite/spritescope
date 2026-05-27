@@ -713,12 +713,10 @@ st.markdown(
         """
         **SpriteScope**  
         Conçu par Sylvain Reybaut © 2026 — Tous droits réservés.
-        
+
         Cette application est une aide visuelle à la chasse aux sprites.
 
         L’apparition des sprites ne peut jamais être garantie.
-        POoen savoir plus sur les sprites  : http://www.reybaut.fr
-        Rejoignez moi sur instagram : https://www.instagram.com/sylvain.reybaut/
         """
 
     )
