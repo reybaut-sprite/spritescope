@@ -55,7 +55,7 @@ st.title(
 
 
 # =========================================================
-# FOCALS
+# FOCAL DATABASE
 # =========================================================
 
 FULL_FRAME = {
@@ -78,7 +78,7 @@ APS_C = {
 
 
 # =========================================================
-# GEOCODE
+# GEOCODING
 # =========================================================
 
 def geocode_place(query):
@@ -92,7 +92,7 @@ def geocode_place(query):
     }
 
     headers = {
-        "User-Agent": "SpriteScope"
+        "User-Agent": "Mozilla/5.0"
     }
 
     try:
@@ -113,13 +113,11 @@ def geocode_place(query):
 
             return lat, lon
 
-        else:
-
-            return None, None
-
     except:
+        pass
 
-        return None, None
+    # fallback Monaco
+    return 43.7384, 7.4246
 
 
 # =========================================================
@@ -184,7 +182,7 @@ def bearing_deg(lat1, lon1, lat2, lon2):
 
 
 # =========================================================
-# DESTINATION
+# DESTINATION POINT
 # =========================================================
 
 def destination_point(lat, lon, bearing, distance_km):
@@ -265,17 +263,6 @@ lieu = st.sidebar.text_input(
 
 lat, lon = geocode_place(lieu)
 
-if lat is None:
-
-    st.error(
-        tr(
-            "Observation location not found",
-            "Lieu d’observation introuvable"
-        )
-    )
-
-    st.stop()
-
 
 # =========================================================
 # SENSOR
@@ -348,41 +335,27 @@ if mode_visee == tr("Target city", "Ville cible"):
 
     cible_lat, cible_lon = geocode_place(ville_cible)
 
-    if cible_lat is not None:
+    azimut = bearing_deg(
+        lat,
+        lon,
+        cible_lat,
+        cible_lon
+    )
 
-        azimut = bearing_deg(
-            lat,
-            lon,
-            cible_lat,
-            cible_lon
-        )
+    distance_villes = haversine(
+        lat,
+        lon,
+        cible_lat,
+        cible_lon
+    )
 
-        distance_villes = haversine(
-            lat,
-            lon,
-            cible_lat,
-            cible_lon
-        )
+    st.sidebar.success(
+        f"Azimuth : {azimut:.1f}°"
+    )
 
-        st.sidebar.success(
-            f"Azimuth : {azimut:.1f}°"
-        )
-
-        st.sidebar.info(
-            f"Distance : {distance_villes:.0f} km"
-        )
-
-    else:
-
-        st.sidebar.error(
-            tr(
-                "Target city not found",
-                "Ville cible introuvable"
-            )
-        )
-
-        azimut = 0
-        distance_villes = 0
+    st.sidebar.info(
+        f"Distance : {distance_villes:.0f} km"
+    )
 
 else:
 
@@ -465,7 +438,7 @@ if distance_cone >= 800:
 
 
 # =========================================================
-# STORM COORDS
+# STORM INPUTS
 # =========================================================
 
 st.sidebar.markdown("---")
@@ -503,7 +476,7 @@ right_text = st.sidebar.text_input(
 
 
 # =========================================================
-# FRONT/BACK
+# FRONT / BACK
 # =========================================================
 
 use_extra = st.sidebar.checkbox(
@@ -556,6 +529,33 @@ if st.sidebar.button(
 
 
 # =========================================================
+# INFOS
+# =========================================================
+
+st.write(f"📍 {lieu} — {lat:.5f}, {lon:.5f}")
+
+st.write(
+    f"📷 {sensor} — {focale} — "
+    f"{tr('horizontal field', 'champ horizontal')} : {fov}°"
+)
+
+st.write(f"🧭 Azimuth : {azimut:.1f}°")
+
+st.write(
+    f"🎯 Cone : "
+    f"{azimut - fov / 2:.1f}° → "
+    f"{azimut + fov / 2:.1f}°"
+)
+
+if distance_villes is not None:
+
+    st.write(
+        f"📏 {tr('Distance between cities', 'Distance entre les deux villes')} : "
+        f"{distance_villes:.0f} km"
+    )
+
+
+# =========================================================
 # MAP
 # =========================================================
 
@@ -567,7 +567,7 @@ m = folium.Map(
 
 
 # =========================================================
-# OBSERVER
+# OBSERVER MARKER
 # =========================================================
 
 folium.Marker(
@@ -583,13 +583,11 @@ folium.Marker(
 
 if mode_visee == tr("Target city", "Ville cible"):
 
-    if cible_lat is not None:
-
-        folium.Marker(
-            [cible_lat, cible_lon],
-            popup=ville_cible,
-            icon=folium.Icon(color="red")
-        ).add_to(m)
+    folium.Marker(
+        [cible_lat, cible_lon],
+        popup=ville_cible,
+        icon=folium.Icon(color="red")
+    ).add_to(m)
 
 
 # =========================================================
@@ -632,6 +630,16 @@ folium.Polygon(
     fill_opacity=0.15
 ).add_to(m)
 
+folium.PolyLine(
+    [
+        [lat, lon],
+        center_point
+    ],
+    color="purple",
+    weight=2,
+    dash_array="5"
+).add_to(m)
+
 
 # =========================================================
 # STORM POINTS
@@ -652,6 +660,7 @@ if center_coords:
 
 if right_coords:
     display_points.append(right_coords)
+
 
 if use_extra:
 
@@ -716,7 +725,7 @@ for point in display_points:
 
 
 # =========================================================
-# POLYGON
+# STORM POLYGON
 # =========================================================
 
 if st.session_state.show_polygon and len(storm_points) >= 3:
@@ -737,7 +746,7 @@ if st.session_state.show_polygon and len(storm_points) >= 3:
 
 
 # =========================================================
-# MAP DISPLAY
+# DISPLAY MAP
 # =========================================================
 
 st_folium(
@@ -776,7 +785,8 @@ st.markdown(
 
         Pour en savoir plus sur les reds sprite, rendez vous sur
         http://www.reybaut.fr
-        Follow me sur insta : https://www.instagram.com/sylvain.reybaut/    
+        Follow me sur insta : https://www.instagram.com/sylvain.reybaut/
+        
         """
 
     )
