@@ -1,3 +1,7 @@
+# =========================================================
+# SPRITESCOPE — STABLE VERSION + TARGET CITY + POLYGON
+# =========================================================
+
 import math
 import requests
 import pandas as pd
@@ -198,6 +202,66 @@ def bearing_deg(lat1, lon1, lat2, lon2):
     return (angle + 360) % 360
 
 
+def angle_diff(a, b):
+
+    return abs(
+        (a - b + 180) % 360 - 180
+    )
+
+
+def sprite_elevation(
+    distance_km,
+    altitude_km=80
+):
+
+    return math.degrees(
+        math.atan(
+            altitude_km / distance_km
+        )
+    )
+
+
+def in_cone(
+    impact_azimuth,
+    center_azimuth,
+    fov
+):
+
+    return (
+
+        angle_diff(
+            impact_azimuth,
+            center_azimuth
+        )
+
+        <= fov / 2
+
+    )
+
+
+# =========================================================
+# IMPACTS TEST
+# =========================================================
+
+def get_test_impacts():
+
+    impacts = [
+
+        {"lat": 45.2, "lon": 7.8},
+        {"lat": 44.8, "lon": 8.4},
+        {"lat": 43.9, "lon": 9.1},
+        {"lat": 46.1, "lon": 6.5},
+        {"lat": 42.7, "lon": 11.3},
+        {"lat": 44.5, "lon": 10.5},
+        {"lat": 45.7, "lon": 12.2},
+        {"lat": 43.5, "lon": 13.1},
+        {"lat": 46.0, "lon": 14.5},
+
+    ]
+
+    return pd.DataFrame(impacts)
+
+
 # =========================================================
 # SIDEBAR
 # =========================================================
@@ -214,39 +278,17 @@ lieu = st.sidebar.text_input(
     "Col de Vence"
 )
 
-lat, lon = geocode_place(lieu)
-
 
 # =========================================================
-# VILLE CIBLE
+# MODE VISÉE
 # =========================================================
 
-ville_cible = st.sidebar.text_input(
-    "Ville cible",
-    "Ljubljana"
-)
-
-cible_lat, cible_lon = geocode_place(
-    ville_cible
-)
-
-
-# =========================================================
-# DISTANCE + AZIMUT
-# =========================================================
-
-distance_ville = haversine_km(
-    lat,
-    lon,
-    cible_lat,
-    cible_lon
-)
-
-azimut = bearing_deg(
-    lat,
-    lon,
-    cible_lat,
-    cible_lon
+mode_visee = st.sidebar.radio(
+    "Mode de visée",
+    [
+        "Azimut manuel",
+        "Ville cible"
+    ]
 )
 
 
@@ -280,46 +322,128 @@ fov = focales[focale]
 
 
 # =========================================================
+# AZIMUT MANUEL OU AUTO
+# =========================================================
+
+lat, lon = geocode_place(lieu)
+
+distance_ville = None
+
+if mode_visee == "Azimut manuel":
+
+    azimut = st.sidebar.number_input(
+        "Azimut central",
+        min_value=0.0,
+        max_value=360.0,
+        value=150.0,
+        step=1.0
+    )
+
+else:
+
+    ville_cible = st.sidebar.text_input(
+        "Ville cible",
+        "Berlin"
+    )
+
+    cible_lat, cible_lon = geocode_place(
+        ville_cible
+    )
+
+    azimut = bearing_deg(
+        lat,
+        lon,
+        cible_lat,
+        cible_lon
+    )
+
+    distance_ville = haversine_km(
+        lat,
+        lon,
+        cible_lat,
+        cible_lon
+    )
+
+    st.sidebar.success(
+        f"Azimut automatique : {azimut:.1f}°"
+    )
+
+    st.sidebar.info(
+        f"Distance : {distance_ville:.0f} km"
+    )
+
+
+# =========================================================
 # DISTANCE CONE
 # =========================================================
 
 distance_cone = st.sidebar.slider(
     "Distance du cône",
     100,
-    1200,
+    1000,
     600,
     step=50
 )
 
 
 # =========================================================
-# ORAGE
+# WARNING > 800 KM
+# =========================================================
+
+if distance_cone >= 800:
+
+    st.sidebar.warning(
+        "⚠️ Au-delà de 800 km, les sprites risquent d’être très bas sur l’horizon."
+    )
+
+
+# =========================================================
+# ÉLÉVATION SIDEBAR
 # =========================================================
 
 st.sidebar.markdown("---")
+st.sidebar.markdown("## Élévation sprite")
 
+st.sidebar.markdown(
+
+    f"""
+
+200 km → {sprite_elevation(200):.1f}°  
+
+400 km → {sprite_elevation(400):.1f}°  
+
+600 km → {sprite_elevation(600):.1f}°  
+
+800 km → {sprite_elevation(800):.1f}°
+
+"""
+
+)
+
+
+# =========================================================
+# ORAGE POLYGONE
+# =========================================================
+
+st.sidebar.markdown("---")
 st.sidebar.markdown("## Coordonnées éclairs")
 
 
 left_text = st.sidebar.text_input(
-    "⚡ Éclair le plus à gauche",
+    "⚡ Éclair gauche",
     "49.99, -3.86"
 )
 
 center_text = st.sidebar.text_input(
-    "⚡ Éclair central",
+    "⚡ Éclair centre",
     "50.10, -2.90"
 )
 
 right_text = st.sidebar.text_input(
-    "⚡ Éclair le plus à droite",
+    "⚡ Éclair droite",
     "50.20, -1.80"
 )
 
-
-# =========================================================
-# OPTION PROCHE / LOINTAIN
-# =========================================================
 
 use_extra = st.sidebar.checkbox(
     "Ajouter proche / éloigné",
@@ -339,10 +463,6 @@ if use_extra:
     )
 
 
-# =========================================================
-# BOUTONS
-# =========================================================
-
 if st.sidebar.button(
     "Générer polygone simulation orage"
 ):
@@ -356,6 +476,54 @@ if st.sidebar.button(
 
 
 # =========================================================
+# IMPACTS
+# =========================================================
+
+impacts = get_test_impacts()
+
+distances = []
+azimuths = []
+elevations = []
+inside = []
+
+
+for _, row in impacts.iterrows():
+
+    d = haversine_km(
+        lat,
+        lon,
+        row["lat"],
+        row["lon"]
+    )
+
+    az = bearing_deg(
+        lat,
+        lon,
+        row["lat"],
+        row["lon"]
+    )
+
+    el = sprite_elevation(d)
+
+    ok = in_cone(
+        az,
+        azimut,
+        fov
+    )
+
+    distances.append(d)
+    azimuths.append(az)
+    elevations.append(el)
+    inside.append(ok)
+
+
+impacts["distance_km"] = distances
+impacts["azimuth"] = azimuths
+impacts["elevation"] = elevations
+impacts["inside"] = inside
+
+
+# =========================================================
 # INFOS
 # =========================================================
 
@@ -364,20 +532,15 @@ st.write(
     f"{lat:.5f}, {lon:.5f}"
 )
 
-st.write(
-    f"🎯 Ville cible : "
-    f"{ville_cible}"
-)
+if distance_ville is not None:
 
-st.write(
-    f"📏 Distance : "
-    f"{distance_ville:.0f} km"
-)
+    st.write(
+        f"🎯 Ville cible : {ville_cible}"
+    )
 
-st.write(
-    f"🧭 Azimut : "
-    f"{azimut:.1f}°"
-)
+    st.write(
+        f"📏 Distance : {distance_ville:.0f} km"
+    )
 
 st.write(
     f"📷 {sensor} — "
@@ -386,7 +549,7 @@ st.write(
 )
 
 st.write(
-    f"🎯 cône : "
+    f"🧭 cône : "
     f"{azimut - fov/2:.1f}° "
     f"→ "
     f"{azimut + fov/2:.1f}°"
@@ -399,7 +562,7 @@ st.write(
 
 m = folium.Map(
     location=[lat, lon],
-    zoom_start=5,
+    zoom_start=6,
     tiles="CartoDB positron"
 )
 
@@ -425,17 +588,19 @@ folium.Marker(
 # VILLE CIBLE
 # =========================================================
 
-folium.Marker(
+if mode_visee == "Ville cible":
 
-    [cible_lat, cible_lon],
+    folium.Marker(
 
-    popup=ville_cible,
+        [cible_lat, cible_lon],
 
-    icon=folium.Icon(
-        color="red"
-    )
+        popup=ville_cible,
 
-).add_to(m)
+        icon=folium.Icon(
+            color="red"
+        )
+
+    ).add_to(m)
 
 
 # =========================================================
@@ -507,7 +672,7 @@ if right_coords:
 
 
 # =========================================================
-# ORDRE POLYGONE
+# POLYGONE ORAGE
 # =========================================================
 
 if use_extra:
@@ -573,7 +738,7 @@ for point in display_points:
 
 
 # =========================================================
-# POLYGONE ORAGE
+# POLYGONE
 # =========================================================
 
 if st.session_state.show_polygon and len(polygon_points) >= 3:
@@ -594,16 +759,96 @@ if st.session_state.show_polygon and len(polygon_points) >= 3:
 
 
 # =========================================================
+# IMPACTS
+# =========================================================
+
+for _, row in impacts.iterrows():
+
+    color = (
+        "red"
+        if row["inside"]
+        else "white"
+    )
+
+    popup = (
+
+        f"Distance : "
+        f"{row['distance_km']:.0f} km<br>"
+
+        f"Azimut : "
+        f"{row['azimuth']:.1f}°<br>"
+
+        f"Élévation sprite : "
+        f"{row['elevation']:.1f}°"
+
+    )
+
+    folium.CircleMarker(
+
+        [row["lat"], row["lon"]],
+
+        radius=6,
+
+        color=color,
+
+        fill=True,
+
+        fill_opacity=0.9,
+
+        popup=popup
+
+    ).add_to(m)
+
+
+# =========================================================
 # AFFICHAGE CARTE
 # =========================================================
 
-st_folium(
+map_data = st_folium(
 
     m,
 
     height=750,
 
-    width=None
+    width=None,
+
+    returned_objects=["last_clicked"]
+
+)
+
+
+# =========================================================
+# DÉPLACEMENT SPOT
+# =========================================================
+
+if map_data["last_clicked"]:
+
+    st.session_state.lat = map_data["last_clicked"]["lat"]
+    st.session_state.lon = map_data["last_clicked"]["lng"]
+
+    st.rerun()
+
+
+# =========================================================
+# TABLEAU IMPACTS
+# =========================================================
+
+st.subheader("Impacts")
+
+st.dataframe(
+
+    impacts[
+
+        [
+            "distance_km",
+            "azimuth",
+            "elevation",
+            "inside"
+        ]
+
+    ],
+
+    use_container_width=True
 
 )
 
