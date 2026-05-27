@@ -2,9 +2,17 @@ import math
 import requests
 import streamlit as st
 import folium
+import urllib3
 
 from geopy.distance import geodesic
 from streamlit_folium import st_folium
+
+
+# =========================================================
+# SSL FIX FOR STREAMLIT CLOUD
+# =========================================================
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # =========================================================
@@ -18,7 +26,7 @@ st.set_page_config(
 
 
 # =========================================================
-# SESSION
+# SESSION STATE
 # =========================================================
 
 if "show_polygon" not in st.session_state:
@@ -101,7 +109,8 @@ def geocode_place(query):
             url,
             params=params,
             headers=headers,
-            timeout=10
+            timeout=10,
+            verify=False
         )
 
         data = r.json()
