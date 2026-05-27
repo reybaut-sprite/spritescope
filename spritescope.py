@@ -1,5 +1,5 @@
 # =========================================================
-# SPRITESCOPE — STORM POLYGON VERSION
+# SPRITESCOPE — FINAL HYBRID VERSION
 # =========================================================
 
 import math
@@ -143,7 +143,7 @@ def geocode_place(query):
 
 
 # =========================================================
-# PARSE COORDS
+# PARSE GPS COORDS
 # =========================================================
 
 def parse_coords(text):
@@ -184,6 +184,33 @@ def destination_point(lat, lon, bearing, distance_km):
         dest.latitude,
         dest.longitude
     )
+
+
+def bearing_deg(lat1, lon1, lat2, lon2):
+
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+
+    dl = math.radians(lon2 - lon1)
+
+    x = math.sin(dl) * math.cos(p2)
+
+    y = (
+
+        math.cos(p1)
+        * math.sin(p2)
+
+        - math.sin(p1)
+        * math.cos(p2)
+        * math.cos(dl)
+
+    )
+
+    angle = math.degrees(
+        math.atan2(x, y)
+    )
+
+    return (angle + 360) % 360
 
 
 # =========================================================
@@ -261,24 +288,81 @@ fov = focales[focale]
 
 
 # =========================================================
-# AZIMUTH
+# TARGET MODE
 # =========================================================
 
-azimut = st.sidebar.number_input(
+mode_visee = st.sidebar.radio(
 
     tr(
-        "Central azimuth",
-        "Azimut central"
+        "Target mode",
+        "Mode de visée"
     ),
 
-    min_value=0.0,
-    max_value=360.0,
-
-    value=150.0,
-
-    step=1.0
+    [
+        tr("Manual azimuth", "Azimut manuel"),
+        tr("Target city", "Ville cible")
+    ]
 
 )
+
+
+# =========================================================
+# MANUAL AZIMUTH
+# =========================================================
+
+if mode_visee == tr("Manual azimuth", "Azimut manuel"):
+
+    azimut = st.sidebar.number_input(
+
+        tr(
+            "Central azimuth",
+            "Azimut central"
+        ),
+
+        min_value=0.0,
+        max_value=360.0,
+
+        value=150.0,
+
+        step=1.0
+
+    )
+
+
+# =========================================================
+# TARGET CITY
+# =========================================================
+
+else:
+
+    ville_cible = st.sidebar.text_input(
+
+        tr(
+            "Target city",
+            "Ville cible"
+        ),
+
+        "London"
+
+    )
+
+    cible_lat, cible_lon = geocode_place(
+        ville_cible
+    )
+
+    azimut = bearing_deg(
+
+        lat,
+        lon,
+
+        cible_lat,
+        cible_lon
+
+    )
+
+    st.sidebar.success(
+        f"Azimuth : {azimut:.1f}°"
+    )
 
 
 # =========================================================
@@ -293,7 +377,7 @@ distance_cone = st.sidebar.slider(
     ),
 
     100,
-    1000,
+    1200,
     600,
     step=50
 
@@ -515,12 +599,15 @@ right_coords = parse_coords(right_text)
 
 storm_points = []
 
+
+# =========================================================
+# POLYGON ORDER
+# =========================================================
+
 if use_extra:
 
     front_coords = parse_coords(front_text)
     back_coords = parse_coords(back_text)
-
-    # ORDRE PROPRE POLYGONE
 
     if left_coords:
         storm_points.append(left_coords)
@@ -535,8 +622,6 @@ if use_extra:
         storm_points.append(front_coords)
 
 else:
-
-    # VERSION SIMPLE TRIANGLE
 
     if left_coords:
         storm_points.append(left_coords)
